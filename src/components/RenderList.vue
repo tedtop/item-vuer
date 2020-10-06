@@ -1,9 +1,10 @@
 <template>
   <div class="text-center">
-    <h1>{{ msg }}</h1>
+    <h1>{{ title }}</h1>
     <div class="row d-flex justify-content-center">
       <div class="col-md-8">
         <GmapMap
+          ref="topMapRef"
           class="gmap"
           :center="{ lat: 42, lng: 42 }"
           :zoom="7"
@@ -14,76 +15,121 @@
           dark
           fixed
           hover
+          show-empty
           striped
-          :fields="colNames"
-          :items="listData"
-        ></b-table>
+          :busy.sync="isBusy"
+          :items="items"
+          :fields="fields"
+        >
+          <template v-slot:cell(actions)="row">
+            <b-button
+              size="sm"
+              @click="info(row.item, row.index, $event.target)"
+            >
+              Map
+            </b-button>
+          </template>
+        </b-table>
 
-        <b-button v-b-modal.modalPopover>Show Modal</b-button>
-
-        <b-modal id="modalPopover" title="Map View" ok-only> </b-modal>
+        <b-modal
+          :id="mapModal.id"
+          :title="mapModal.title"
+          @hide="resetInfoModal"
+          ok-only
+        >
+          <GmapMap
+            ref="modalMapRef"
+            class="gmap"
+            :center="{ lat: 42, lng: 42 }"
+            :zoom="7"
+            map-type-id="terrain"
+          />
+        </b-modal>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-
-console.log(process.env.VUE_APP_GOOGLE_API_KEY);
-
-import Vue from "vue";
-import axios from "axios";
-
-import { TablePlugin } from "bootstrap-vue";
-Vue.use(TablePlugin);
-
-import * as VueGoogleMaps from 'gmap-vue';
-Vue.use(VueGoogleMaps, {
-  load: {
-    key: process.env.VUE_APP_GOOGLE_API_KEY,
-    libraries: 'places', // This is required if you use the Autocomplete plugin
-    // OR: libraries: 'places,drawing'
-    // OR: libraries: 'places,drawing,visualization'
-    // (as you require)
-
-    //// If you want to set the version, you can do so:
-    // v: '3.26',
-  }
-});
+// import axios from "axios";
+import { gmapApi } from 'gmap-vue';
 
 export default {
   name: "RenderList",
   props: {
-    msg: String,
+    title: String
   },
-  data: function () {
+  computed: {
+    google() {
+      return gmapApi();
+    }
+  },
+  updated() {
+    console.log(this.$refs.modalMapRef);
+    console.log(window.google.maps);
+
+    this.$refs.modalMapRef.$mapPromise.then((map) => {
+      window.google.maps.event.trigger(map, 'resize');
+    });
+  },
+  data() {
     return {
-      colNames: [
+      items: [
+        { id: 1, lat: 42, long: 42 },
+        { id: 2, lat: 42, long: 42 },
+        { id: 3, lat: 42, long: 42 },
+      ],
+      isBusy: false,
+      fields: [
         {
           key: "id",
           sortable: true,
-          tdClass: "text-left",
-          thClass: "text-left",
+          class: "text-left",
         },
         {
           key: "text",
           sortable: true,
+          class: "text-left",
         },
         "lat",
         "long",
+        {
+          key: "actions",
+          label: "Actions"
+        }
       ],
-      listData: [],
-    };
+      mapModal: {
+        id: "map-modal",
+        title: "",
+        item: ""
+      }
+    }
   },
-  mounted() {
-    axios.get(process.env.VUE_APP_LIST_DATA_SERVICE).then((response) => {
-      this.listDataString = JSON.stringify(response.data, null, "\t");
-      this.listData = response.data;
-      console.log(this.listDataString);
-      return response; // multiline arrow function must return
-    });
+  methods: {
+    // dataProvider() {
+    //   this.isBusy = true;
+    //   let promise = axios.get(process.env.VUE_APP_LIST_DATA_SERVICE);
+
+    //   return promise.then((response) => {
+    //     this.isBusy = false
+    //     return response.data;
+    //   }).catch(error => {
+    //     this.isBusy = false;
+    //     console.log(error);
+    //     return [];
+    //   })
+    // },
+    info(item, index, button) {
+      this.mapModal.title = `Label: ${item.id}`;
+      this.mapModal.item = item;
+      this.$root.$emit("bv::show::modal", this.mapModal.id, button);
+    },
+    resetInfoModal() {
+      this.mapModal.title = "";
+      this.mapModal.content = "";
+    },
   },
-};
+}
 </script>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
